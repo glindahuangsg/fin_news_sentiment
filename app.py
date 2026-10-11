@@ -34,7 +34,7 @@ COMPANY_NAME = "Bank of China"
 COMPANY_URL = "https://www.boc.cn/en/"
 
 # >>> MODIFY: the model you published in notebook 02 (REPO_NAME).
-SENTIMENT_MODEL = "YOUR_HF_USERNAME/boc-finsentiment-distilbert"
+SENTIMENT_MODEL = "glindahuangsg/boc-finsentiment-distilbert"
 # >>> MODIFY: the topic model selected in notebook 03 (Experiment 2).
 TOPIC_MODEL = "leonas5555/finnews-topic-single-classify"
 
