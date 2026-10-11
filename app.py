@@ -400,7 +400,7 @@ def choose_news():
     st.sidebar.header("News source")
     source = st.sidebar.radio(
         "Where the news comes from",
-        ["Demo headlines (simulated)", "Live headlines (Google News)", "Upload a CSV"],
+        ["Live headlines (Google News)", "Demo headlines (simulated)", "Upload a CSV"],
         key="source",
     )
     note = ""
@@ -547,6 +547,9 @@ def page_dashboard(news, alerts, note):
 # Page: browse the filtered news and download the results.
 def page_search(news):
     st.title("🔍 News search")
+    if not news.empty and not news["url"].str.startswith("http").any():
+        st.info("These headlines have no original articles to link to (demo headlines are simulated). "
+                "Choose \"Live headlines (Google News)\" in the sidebar for real news with links.")
     query = st.text_input("Search the headlines", "", key="search_query",
                           placeholder="Type a keyword, for example: profit")
     if query.strip():
