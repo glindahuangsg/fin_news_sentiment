@@ -1,3 +1,12 @@
-transformers<5.0.0
-streamlit
+# Packages the app needs. Streamlit Community Cloud installs these before starting app.py.
+#
+#   transformers<5.0.0 : version 4.x, the same major version used in the notebooks.
+#   torch              : runs the two models (CPU on Streamlit Cloud).
+#   streamlit          : the web app framework.
+#   pandas             : tables.
+#   plotly             : the charts on the dashboard.
+transformers>=4.45.0,<5.0.0
 torch
+streamlit>=1.40
+pandas
+plotly>=5.19
