@@ -33,9 +33,9 @@ from transformers import pipeline
 COMPANY_NAME = "Bank of China"
 COMPANY_URL = "https://www.boc.cn/en/"
 
-# >>> MODIFY: the model you published in notebook 02 (REPO_NAME).
+# Pipeline 1 model: DistilBERT fine-tuned in notebook 01 and published to the Hugging Face Hub in notebook 02.
 SENTIMENT_MODEL = "glindahuangsg/boc-finsentiment-distilbert"
-# >>> MODIFY: the topic model selected in notebook 03 (Experiment 2).
+# Pipeline 2 model: the pre-trained topic classifier selected in notebook 03 (Experiment 2).
 TOPIC_MODEL = "leonas5555/finnews-topic-single-classify"
 
 MAX_LENGTH = 128         # same as in the notebooks
@@ -87,9 +87,9 @@ WATCHLIST = [
                    "hsbc", "standard chartered", "competitor"]),
     ("Regulator", ["pboc", "nfra", "csrc", "hkma", "regulator", "central bank"]),
 ]
-# NOTE: several other institutions have names that END in "Bank of China". They are
-#       replaced by a short code before matching, otherwise every one of them would
-#       be tagged as the company.
+# Several other institutions have names that END in "Bank of China". They are
+# replaced by a short code before matching, otherwise every one of them would
+# be tagged as the company.
 OTHER_BANKS_OF_CHINA = {
     "people's bank of china": "pboc", "people\u2019s bank of china": "pboc",
     "industrial and commercial bank of china": "icbc", "agricultural bank of china": "agbank",
@@ -106,6 +106,7 @@ CASHTAG_RE = re.compile(r"\$(?=[A-Za-z])")
 SPACE_RE = re.compile(r"\s+")
 
 
+# Clean a text (links, @mentions, extra spaces) the same way as in training, so the models see familiar input.
 def clean_text(text):
     text = html.unescape(str(text))
     text = URL_RE.sub(" ", text)
@@ -120,11 +121,13 @@ def clean_text(text):
 # ============================================================
 # st.cache_resource keeps each model in memory, so it is loaded once and not on
 # every click.
+# Pipeline 1: load the fine-tuned sentiment model once and keep it in memory.
 @st.cache_resource(show_spinner="Loading pipeline 1: sentiment model...")
 def load_sentiment_pipeline():
     return pipeline("text-classification", model=SENTIMENT_MODEL, device=-1)   # -1 = CPU
 
 
+# Pipeline 2: load the pre-trained topic model once and keep it in memory.
 @st.cache_resource(show_spinner="Loading pipeline 2: topic model...")
 def load_topic_pipeline():
     return pipeline("text-classification", model=TOPIC_MODEL, device=-1)
@@ -134,11 +137,13 @@ SENTIMENT_ALIASES = {"negative": "Negative", "neutral": "Neutral", "positive": "
                      "bearish": "Negative", "bullish": "Positive"}
 
 
+# Convert any model's label name into the app's three sentiments.
 def to_sentiment(label):
     """Translate a model's label name into Negative / Neutral / Positive."""
     return SENTIMENT_ALIASES.get(str(label).strip().lower(), "Neutral")
 
 
+# Convert the topic model's label into a readable topic name.
 def to_topic(label):
     """Readable topic name, also when a model only returns LABEL_0 ... LABEL_19."""
     label = str(label).strip()
@@ -148,6 +153,7 @@ def to_topic(label):
     return label
 
 
+# Run both pipelines on a set of texts and return one result row per text; the core of the app.
 @st.cache_data(show_spinner="Analysing news with both pipelines...")
 def score_texts(texts):
     """Run both pipelines over a tuple of texts. Cached, so the same texts are scored once."""
@@ -181,10 +187,12 @@ def score_texts(texts):
 # ============================================================
 # News sources
 # ============================================================
+# Current time in UTC, so that all timestamps in the app are comparable.
 def utc_now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+# News source 1: simulated headlines, for demonstrating the app without live news.
 @st.cache_data
 def demo_news(n=53):
     """Simulated headlines, clearly labelled as such in the app. No real company is named."""
@@ -225,6 +233,7 @@ def demo_news(n=53):
     return pd.DataFrame(rows)
 
 
+# Convert a downloaded RSS feed into a table of headlines.
 def parse_rss(xml_bytes):
     """Turn an RSS feed into a table with title, source, timestamp and url."""
     root = ET.fromstring(xml_bytes)
@@ -245,6 +254,7 @@ def parse_rss(xml_bytes):
     return pd.DataFrame(rows, columns=["title", "source", "timestamp", "url"])
 
 
+# News source 2: fetch current headlines from Google News for a search phrase.
 @st.cache_data(ttl=900, show_spinner="Fetching live headlines...")
 def live_news(query):
     """Latest headlines for a search phrase, from the public Google News RSS feed. Cached for 15 minutes."""
@@ -255,6 +265,7 @@ def live_news(query):
         return parse_rss(response.read())
 
 
+# News source 3: read headlines from a CSV file uploaded by the user.
 def uploaded_news(file):
     """A CSV with a 'title' (or 'text') column; 'source', 'timestamp' and 'url' are optional."""
     df = pd.read_csv(file)
@@ -272,6 +283,7 @@ def uploaded_news(file):
     return out[out["title"].str.len() > 0].reset_index(drop=True)
 
 
+# Decide by keywords who a headline is about (the company, a peer bank, a regulator, other).
 def tag_entity(title):
     low = str(title).lower()
     for full_name, code in OTHER_BANKS_OF_CHINA.items():
@@ -282,6 +294,7 @@ def tag_entity(title):
     return "Other"
 
 
+# Add sentiment, topic, entity, team and an id to the news table, so the pages have all they need.
 def enrich(news):
     """Add both pipelines' output, the entity, the routing team and a stable id to the news table."""
     news = news.head(MAX_ITEMS).reset_index(drop=True)
@@ -298,11 +311,13 @@ def enrich(news):
 # ============================================================
 # Alerts: where the two pipelines meet
 # ============================================================
+# The starting alert rules (confidence threshold, priority topics and entities).
 def default_rules():
     return {"min_confidence": 0.85, "priority_topics": list(DEFAULT_PRIORITY_TOPICS),
             "priority_entities": [COMPANY_NAME, DEMO_ENTITY]}
 
 
+# Combine both pipelines into alerts: negative sentiment selects them, the topic sets priority and team.
 def build_alerts(news, rules):
     """
     Alert    = pipeline 1 says Negative with confidence at or above the threshold.
@@ -321,21 +336,33 @@ def build_alerts(news, rules):
 # ============================================================
 # Small display helpers
 # ============================================================
+# A coloured dot plus the sentiment name, for display.
 def dot(sentiment):
     """A coloured dot next to plain text, so the colour is never the only signal."""
     return f"<span style='color:{SENTIMENT_COLORS.get(sentiment, '#898781')};'>●</span> {sentiment}"
 
 
+# Escape special characters so outside text is displayed exactly as written.
 def md_safe(text):
     """Headlines come from outside the app. Escape the characters Markdown would
     interpret, e.g. "$5 billion ... $3" would otherwise be rendered as a formula."""
     return re.sub(r"([\\`*_\[\]$#<>|~])", r"\\\1", str(text))
 
 
+# Format a timestamp as readable text.
 def when(stamp):
     return pd.Timestamp(stamp).strftime("%Y-%m-%d %H:%M")
 
 
+# Link to the original article as HTML, or a short note when the item has no link (demo headlines).
+def source_link(url):
+    url = str(url or "")
+    if url.startswith(("http://", "https://")):
+        return f"<a href='{html.escape(url, quote=True)}' target='_blank'>Open original article</a>"
+    return "no original link"
+
+
+# Apply the same layout to every chart, for a consistent look.
 def base_layout(fig, height):
     fig.update_layout(
         height=height, margin=dict(l=10, r=10, t=10, b=10), barcornerradius=4,
@@ -345,19 +372,19 @@ def base_layout(fig, height):
     return fig
 
 
+# Draw one news item as a card with its sentiment, topic and details.
 def news_card(row, show_details=True):
     with st.container(border=True):
         st.markdown(f"**{md_safe(row['title'])}**")
         st.markdown(
             f"{dot(row['sentiment'])} &nbsp;·&nbsp; {html.escape(str(row['topic']))} &nbsp;·&nbsp; "
-            f"{html.escape(str(row['source']))} &nbsp;·&nbsp; {when(row['timestamp'])} UTC",
+            f"{html.escape(str(row['source']))} &nbsp;·&nbsp; {when(row['timestamp'])} UTC &nbsp;·&nbsp; "
+            f"{source_link(row.get('url', ''))}",
             unsafe_allow_html=True,
         )
         if show_details:
             with st.expander("Details"):
                 st.write(f"About: **{row['entity']}** · Suggested team: **{row['team']}**")
-                if str(row.get("url", "")).startswith(("http://", "https://")):
-                    st.link_button("Open the original article", row["url"])
                 st.caption(
                     f"Model view — negative {row['p_negative']:.0%}, neutral {row['p_neutral']:.0%}, "
                     f"positive {row['p_positive']:.0%}; topic match {row['topic_confidence']:.0%}. "
@@ -368,6 +395,7 @@ def news_card(row, show_details=True):
 # ============================================================
 # Sidebar: data source and filters
 # ============================================================
+# Sidebar: let the user pick the news source and return the headlines to analyse.
 def choose_news():
     st.sidebar.header("News source")
     source = st.sidebar.radio(
@@ -407,6 +435,7 @@ def choose_news():
     return news, note
 
 
+# Sidebar: let the user filter the news and return the matching items.
 def filter_news(news):
     st.sidebar.header("Filters")
     period = st.sidebar.radio("Period", ["Last 24 hours", "Last 7 days", "All"], index=2, key="period")
@@ -415,7 +444,6 @@ def filter_news(news):
     topics = st.sidebar.multiselect("Topic", topics_all, default=[], key="f_topic", placeholder="All topics")
     entities_all = sorted(news["entity"].unique())
     entities = st.sidebar.multiselect("About", entities_all, default=[], key="f_entity", placeholder="Everyone")
-    keyword = st.sidebar.text_input("Keyword", "", key="f_keyword")
 
     out = news
     if period != "All":
@@ -426,14 +454,13 @@ def filter_news(news):
         out = out[out["topic"].isin(topics)]
     if entities:
         out = out[out["entity"].isin(entities)]
-    if keyword.strip():
-        out = out[out["title"].str.contains(keyword.strip(), case=False, na=False, regex=False)]
     return out.reset_index(drop=True)
 
 
 # ============================================================
 # Page: Dashboard
 # ============================================================
+# Page: overview with key numbers, charts, urgent alerts and latest news.
 def page_dashboard(news, alerts, note):
     st.title(f"🏦 {COMPANY_NAME} · News Sentiment Monitor")
     st.caption(f"{note} Updated {when(utc_now())} UTC.")
@@ -503,22 +530,30 @@ def page_dashboard(news, alerts, note):
         with st.container(border=True):
             st.markdown(f"{PRIORITY_ICONS['High']} **High priority** · {row['topic']} · route to **{row['team']}**")
             st.markdown(f"**{md_safe(row['title'])}**")
-            st.caption(f"{md_safe(row['source'])} · {when(row['timestamp'])} UTC · about {row['entity']}")
+            st.caption(f"{md_safe(row['source'])} · {when(row['timestamp'])} UTC · about {row['entity']} · "
+                       f"{source_link(row['url'])}", unsafe_allow_html=True)
 
     st.subheader("Latest news")
-    table = news.head(15)[["timestamp", "title", "source", "sentiment", "topic", "entity"]].copy()
+    table = news.head(15)[["timestamp", "title", "source", "sentiment", "topic", "entity", "url"]].copy()
     table["timestamp"] = table["timestamp"].map(when)
-    st.dataframe(table, hide_index=True)
+    table["url"] = table["url"].where(table["url"].str.startswith("http"), None)    # no link -> empty cell
+    st.dataframe(table, hide_index=True,
+                 column_config={"url": st.column_config.LinkColumn("Original article", display_text="Open")})
 
 
 # ============================================================
 # Page: News search
 # ============================================================
+# Page: browse the filtered news and download the results.
 def page_search(news):
     st.title("🔍 News search")
-    st.caption(f"{len(news)} items match the filters in the sidebar.")
+    query = st.text_input("Search the headlines", "", key="search_query",
+                          placeholder="Type a keyword, for example: profit")
+    if query.strip():
+        news = news[news["title"].str.contains(query.strip(), case=False, na=False, regex=False)]
+    st.caption(f"{len(news)} items found. The filters in the sidebar also apply.")
     if news.empty:
-        st.warning("Nothing matches. Widen the filters in the sidebar.")
+        st.warning("Nothing matches. Try another keyword, or widen the filters in the sidebar.")
         return
     for _, row in news.head(40).iterrows():
         news_card(row)
@@ -531,6 +566,7 @@ def page_search(news):
 # ============================================================
 # Page: Alert centre
 # ============================================================
+# Page: review alerts, set their status, and edit the alert rules.
 def page_alerts(alerts, all_news):
     st.title("🚨 Alert centre")
     tab_list, tab_rules = st.tabs(["Alerts", "Alert rules"])
@@ -549,7 +585,8 @@ def page_alerts(alerts, all_news):
                                 f"· route to **{row['team']}**")
                     st.markdown(f"**{md_safe(row['title'])}**")
                     st.caption(f"{md_safe(row['source'])} · {when(row['timestamp'])} UTC · about {row['entity']} · "
-                               f"model confidence {row['confidence']:.0%}")
+                               f"model confidence {row['confidence']:.0%} · {source_link(row['url'])}",
+                               unsafe_allow_html=True)
                 with action:
                     options = ["Open", "Reviewed", "Dismissed"]
                     choice = st.selectbox("Status", options, index=options.index(row["status"]),
@@ -584,6 +621,7 @@ def page_alerts(alerts, all_news):
 # ============================================================
 # Page: Report
 # ============================================================
+# Write the summary report as Markdown text.
 def build_report(news, alerts, note, for_screen=False):
     show = md_safe if for_screen else str        # escape only the on-screen copy
     total = len(news)
@@ -619,6 +657,7 @@ def build_report(news, alerts, note, for_screen=False):
     return "\n".join(lines)
 
 
+# Page: preview and download the summary report.
 def page_report(news, alerts, note):
     st.title("📄 Sentiment report")
     st.caption("A summary of the news currently selected by the sidebar filters, ready to download.")
@@ -635,6 +674,7 @@ def page_report(news, alerts, note):
 # ============================================================
 # Page: Analyse one text
 # ============================================================
+# Page: classify a single text typed by the user with both pipelines.
 def page_analyse():
     st.title("✍️ Analyse a piece of text")
     st.caption("Paste a headline or a sentence from a news article. English only.")
@@ -669,6 +709,7 @@ def page_analyse():
 # ============================================================
 # Page: Model check (accuracy of the deployed app)
 # ============================================================
+# Page: measure the deployed sentiment model's accuracy on a labelled file (for the report).
 def page_model_check():
     st.title("✅ Model check")
     st.caption("Measures how often the sentiment model in this app agrees with labelled examples. "
@@ -728,6 +769,7 @@ def page_model_check():
 # ============================================================
 # Main
 # ============================================================
+# Entry point: set up the page, load both models, prepare the data and show the selected page.
 def main():
     st.set_page_config(page_title=f"{COMPANY_NAME} News Sentiment Monitor", page_icon="🏦", layout="wide")
 
