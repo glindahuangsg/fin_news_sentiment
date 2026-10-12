@@ -406,6 +406,7 @@ def choose_news():
     note = ""
     if source.startswith("Live"):
         query = st.sidebar.text_input("Search phrase", NEWS_QUERY, key="query")
+        only_company = st.sidebar.checkbox(f"Only headlines about {COMPANY_NAME}", value=True, key="only_company")
         if st.sidebar.button("Refresh now"):
             live_news.clear()
         try:
@@ -413,6 +414,15 @@ def choose_news():
             if news.empty:
                 raise ValueError("the feed returned no items")
             note = f"Live headlines for {query}, via Google News RSS."
+            # The search also returns other banks whose names contain the phrase (e.g. People's Bank of China),
+            # so by default only the headlines tagged as the company are kept.
+            if only_company:
+                about_company = news[news["title"].map(tag_entity) == COMPANY_NAME]
+                if about_company.empty:
+                    note += f" No headline in the feed is about {COMPANY_NAME} right now, so all results are shown."
+                else:
+                    note += f" Showing the {len(about_company)} of {len(news)} headlines that are about {COMPANY_NAME}."
+                    news = about_company.reset_index(drop=True)
         except Exception as error:      # network problem, feed change, empty result
             st.sidebar.warning(f"Live headlines are unavailable ({type(error).__name__}). Showing demo headlines instead.")
             news, note = demo_news(), "Demo headlines (simulated), because the live feed could not be reached."
