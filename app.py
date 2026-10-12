@@ -366,14 +366,32 @@ def live_news(query):
         query: the search phrase, e.g. '"Bank of China"'.
     Returns:
         A DataFrame with the columns title, source, timestamp and url.
+    If the exact phrase finds nothing, the search is retried once without the
+    quotation marks (a broader search). An empty result raises an error instead of
+    being returned, because Streamlit does not cache errors: an empty feed is then
+    not kept for 15 minutes, and the next click simply tries again.
+
     Raises:
-        An error if the network or the feed is unavailable (handled in choose_news).
+        An error if the network or the feed is unavailable, or no headlines are found
+        (handled in choose_news).
     """
-    url = "https://news.google.com/rss/search?" + urllib.parse.urlencode(
-        {"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"})
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (student news-monitor project)"})
-    with urllib.request.urlopen(request, timeout=15) as response:
-        return parse_rss(response.read())
+    query = query.strip() or NEWS_QUERY                 # an empty search box would return nothing
+    attempts = [query]
+    if '"' in query:                                    # broader fallback: same words without quotes
+        attempts.append(query.replace('"', ""))
+    for phrase in attempts:
+        url = "https://news.google.com/rss/search?" + urllib.parse.urlencode(
+            {"q": phrase, "hl": "en-US", "gl": "US", "ceid": "US:en"})
+        request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (student news-monitor project)"})
+        with urllib.request.urlopen(request, timeout=15) as response:
+            body = response.read()
+        # Google sometimes answers with a web page (e.g. a consent or "unusual traffic" page) instead of RSS.
+        if b"<rss" not in body[:2000]:
+            raise ValueError("Google News did not return an RSS feed (it may be blocking this server)")
+        news = parse_rss(body)
+        if not news.empty:
+            return news
+    raise ValueError(f"Google News returned no headlines for {query}")
 
 
 # News source 3: read headlines from a CSV file uploaded by the user.
@@ -643,16 +661,16 @@ def choose_news():
         if st.sidebar.button("Refresh now"):
             live_news.clear()
         try:
-            news = live_news(query)
-            if news.empty:
-                raise ValueError("the feed returned no items")
+            news = live_news(query)             # raises an error when no headlines can be fetched
             # All headlines are kept, as in the demo and CSV modes. The search also returns other banks whose
             # names contain the phrase (e.g. People's Bank of China); the "About" filter in the sidebar
             # narrows the view to the company, peer banks or regulators.
             note = (f"Live headlines for {query}, via Google News RSS. "
                     f"Use the 'About' filter to narrow to {COMPANY_NAME}, peer banks or regulators.")
         except Exception as error:      # network problem, feed change, empty result
-            st.sidebar.warning(f"Live headlines are unavailable ({type(error).__name__}). Showing demo headlines instead.")
+            # Show the actual reason (not only the error type), so the user knows what went wrong.
+            st.sidebar.warning(f"Live headlines are unavailable: {error}. Showing demo headlines instead. "
+                               "Try 'Refresh now' in a minute.")
             news, note = demo_news(), "Demo headlines (simulated), because the live feed could not be reached."
     elif source.startswith("Upload"):
         file = st.sidebar.file_uploader("CSV with a 'title' or 'text' column", type=["csv"], key="news_file")
