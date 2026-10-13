@@ -58,7 +58,6 @@ Always answering "neutral" would score 0.6409 on the full test set. The main wea
 | `app.py` | The Streamlit app |
 | `requirements.txt` | Python packages the app needs |
 | `app_test_sample.csv` | 300 labelled test rows for the Model check page: a random sample of the 3,498-row test set, made by notebook 03, with the columns `text` and `label` (negative, neutral or positive) |
-| `.streamlit/config.toml` | App colour theme |
 
 ## Run it locally
 
