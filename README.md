@@ -4,6 +4,7 @@ ISOM5240 group project: **AI-Powered Financial Information Monitoring for Bank o
 Group [number]: [member names]
 
 **Live app:** https://finnewssentiment-dfdyvtwwuydzxiend7o2zc.streamlit.app/
+
 **Fine-tuned model:** https://huggingface.co/glindahuangsg/boc-finsentiment-distilbert
 
 ## What the app does
