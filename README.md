@@ -1,1 +1,79 @@
-# fin_news_sentiment
+# Bank of China News Sentiment Monitor
+
+ISOM5240 group project: **AI-Powered Financial Information Monitoring for Bank of China Using Deep Learning**.
+
+**Live app:** https://finnewssentiment-dfdyvtwwuydzxiend7o2zc.streamlit.app/
+**Fine-tuned model:** https://huggingface.co/glindahuangsg/boc-finsentiment-distilbert
+
+## What the app does
+
+The app reads English financial news about Bank of China, finds the negative items, gives each one a priority, and suggests which team should handle it.
+
+```
+News headline
+  → Pipeline 1: sentiment (negative / neutral / positive)
+  → Pipeline 2: topic (one of 20 financial topics)
+  → Alert rule: negative with confidence ≥ 0.85 becomes an alert;
+                high priority if the topic is Legal | Regulation, Earnings,
+                Financials or Treasuries | Corporate Debt, or if the news is about Bank of China;
+                the topic sets the suggested team
+```
+
+| Pipeline | Model | Notes |
+|---|---|---|
+| 1 · Sentiment | [`glindahuangsg/boc-finsentiment-distilbert`](https://huggingface.co/glindahuangsg/boc-finsentiment-distilbert) | DistilBERT fine-tuned by the group on 9,450 financial sentences and headlines |
+| 2 · Topic | [`leonas5555/finnews-topic-single-classify`](https://huggingface.co/leonas5555/finnews-topic-single-classify) | Published BERT classifier with 20 topics, used as it is |
+
+Both models are loaded by name from Hugging Face when the app starts, and run on CPU.
+
+## Pages
+
+| Page | What it shows |
+|---|---|
+| Dashboard | Key numbers, sentiment mix, sentiment over time, negative items by topic |
+| News search | Search the scored news, open the original article, download as CSV |
+| Alert centre | Alerts by priority and suggested team; mark them reviewed or dismissed; change the threshold and priority topics |
+| Report | A short summary of the news and alerts, to download |
+| Analyse a text | Paste one headline and see its sentiment, topic and suggested team |
+| Model check | Upload a labelled CSV and see the accuracy of the sentiment model |
+
+News sources (sidebar): live Google News headlines for "Bank of China", an uploaded CSV, or demo headlines. The **About** filter keeps only the news about Bank of China itself.
+
+## Results
+
+| Test | Rows | Accuracy |
+|---|---|---|
+| Fine-tuned sentiment model, full test set (notebook 01) | 3,498 | 0.8899 |
+| Same model in the notebook, `app_test_sample.csv` (notebook 03) | 300 | 0.8967 |
+| Same model in this app, Model check page | 300 | 0.8967 (269 correct) |
+| Topic model, Twitter Financial News Topic (notebook 03) | 1,000 | 0.889 |
+
+Always answering "neutral" would score 0.6409 on the full test set. The main weak point is negative news: about one negative item in four is missed, mostly short headlines.
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `app.py` | The Streamlit app |
+| `requirements.txt` | Python packages the app needs |
+| `app_test_sample.csv` | 300 labelled test rows for the Model check page |
+| `.streamlit/config.toml` | App colour theme |
+
+## Run it locally
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+The first start downloads both models from Hugging Face (a few hundred MB). No token is needed, because both models are public.
+
+## Check the deployed model
+
+1. Open the app and go to **Model check**.
+2. Upload `app_test_sample.csv`.
+3. The page shows the accuracy (0.8967, 269 of 300) and a table of where the model is right and wrong.
+
+## Notes
+
+This is an academic prototype for ISOM5240 at HKUST. It is not affiliated with Bank of China. The output is a screening aid for human review, not investment or compliance advice.
