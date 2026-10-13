@@ -1,6 +1,6 @@
 # Bank of China News Sentiment Monitor
 
-ISOM5240 group project: **AI-Powered Financial Information Monitoring for Bank of China Using Deep Learning**.
+ISOM5240 group project: **AI-Powered News Sentiment Monitoring for Bank of China Using Deep Learning**.
 Group [number]: [member names]
 
 **Live app:** https://finnewssentiment-dfdyvtwwuydzxiend7o2zc.streamlit.app/
