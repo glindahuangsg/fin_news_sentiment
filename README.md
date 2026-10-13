@@ -40,24 +40,6 @@ Both models are loaded by name from Hugging Face when the app starts, and run on
 
 News sources (sidebar): live Google News headlines for "Bank of China", an uploaded CSV, or demo headlines. The **About** filter keeps only the news about Bank of China itself.
 
-## Results
-
-| Test | Rows | Accuracy |
-|---|---|---|
-| Fine-tuned sentiment model, full test set (notebook 01) | 3,498 | 0.8899 |
-| Same model in the notebook, `app_test_sample.csv` (notebook 03) | 300 | 0.8967 |
-| Same model in this app, Model check page | 300 | 0.8967 (269 correct) |
-| Topic model, Twitter Financial News Topic (notebook 03) | 1,000 | 0.889 |
-
-Always answering "neutral" would score 0.6409 on the full test set. The main weak point is negative news: about one negative item in four is missed, mostly short headlines.
-
-## Files
-
-| File | Purpose |
-|---|---|
-| `app.py` | The Streamlit app |
-| `requirements.txt` | Python packages the app needs |
-| `app_test_sample.csv` | 300 labelled test rows for the Model check page: a random sample of the 3,498-row test set, made by notebook 03, with the columns `text` and `label` (negative, neutral or positive) |
 
 ## Run it locally
 
