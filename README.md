@@ -1,6 +1,7 @@
 # Bank of China News Sentiment Monitor
 
 ISOM5240 group project: **AI-Powered Financial Information Monitoring for Bank of China Using Deep Learning**.
+Group [number]: [member names]
 
 **Live app:** https://finnewssentiment-dfdyvtwwuydzxiend7o2zc.streamlit.app/
 **Fine-tuned model:** https://huggingface.co/glindahuangsg/boc-finsentiment-distilbert
@@ -56,7 +57,7 @@ Always answering "neutral" would score 0.6409 on the full test set. The main wea
 |---|---|
 | `app.py` | The Streamlit app |
 | `requirements.txt` | Python packages the app needs |
-| `app_test_sample.csv` | 300 labelled test rows for the Model check page |
+| `app_test_sample.csv` | 300 labelled test rows for the Model check page: a random sample of the 3,498-row test set, made by notebook 03, with the columns `text` and `label` (negative, neutral or positive) |
 | `.streamlit/config.toml` | App colour theme |
 
 ## Run it locally
@@ -70,9 +71,12 @@ The first start downloads both models from Hugging Face (a few hundred MB). No t
 
 ## Check the deployed model
 
-1. Open the app and go to **Model check**.
-2. Upload `app_test_sample.csv`.
-3. The page shows the accuracy (0.8967, 269 of 300) and a table of where the model is right and wrong.
+1. Download `app_test_sample.csv` from this repository (open the file, then click **Download raw file**).
+2. Open the app and go to **Model check**.
+3. Upload `app_test_sample.csv`.
+4. The page shows the accuracy (0.8967, 269 of 300), the same as notebook 03, and a table of where the model is right and wrong.
+
+The model never saw these 300 rows during training: they come from the held-out test set.
 
 ## Notes
 
